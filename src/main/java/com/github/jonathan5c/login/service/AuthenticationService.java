@@ -6,7 +6,9 @@ import com.github.jonathan5c.login.dto.request.RegisterRequest;
 import com.github.jonathan5c.login.dto.response.LoginResponse;
 import com.github.jonathan5c.login.dto.response.RegisterResponse;
 import com.github.jonathan5c.login.entity.UserEntity;
+import com.github.jonathan5c.login.exception.EmailAlreadyExistsException;
 import com.github.jonathan5c.login.repository.UserRepository;
+import jakarta.validation.constraints.NotNull;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -29,7 +31,7 @@ public class AuthenticationService {
         this.passwordEncoder = passwordEncoder;
     }
 
-    public LoginResponse login(LoginRequest request) {
+    public LoginResponse login(@NotNull LoginRequest request) {
         UsernamePasswordAuthenticationToken userAndPass =
                 new UsernamePasswordAuthenticationToken(request.email(), request.password());
         Authentication authentication = authenticatinManager.authenticate(userAndPass);
@@ -39,12 +41,17 @@ public class AuthenticationService {
         return new LoginResponse(token);
     }
 
-    public RegisterResponse register(RegisterRequest register) {
+    public RegisterResponse register(@NotNull RegisterRequest register) {
         UserEntity newUser = new UserEntity();
-        newUser.setPassword(passwordEncoder.encode(register.password()));
         newUser.setEmail(register.email());
-        newUser.setName(register.name());
-        userRepository.save(newUser);
+
+        if (userRepository.existsByEmail(newUser.getEmail())) {
+            throw new EmailAlreadyExistsException("O e-mail " + newUser.getEmail() + "' já está em uso.");
+        } else {
+            newUser.setPassword(passwordEncoder.encode(register.password()));
+            newUser.setName(register.name());
+            userRepository.save(newUser);
+        }
 
         return new RegisterResponse(newUser.getName(), newUser.getEmail(), newUser.getUsername());
     }
