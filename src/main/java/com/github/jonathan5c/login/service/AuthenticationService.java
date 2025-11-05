@@ -6,7 +6,6 @@ import com.github.jonathan5c.login.dto.request.RegisterRequest;
 import com.github.jonathan5c.login.dto.response.LoginResponse;
 import com.github.jonathan5c.login.dto.response.RegisterResponse;
 import com.github.jonathan5c.login.entity.UserEntity;
-import com.github.jonathan5c.login.exception.EmailAlreadyExistsException;
 import com.github.jonathan5c.login.repository.UserRepository;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -22,13 +21,15 @@ public class AuthenticationService {
     private final AuthenticationManager authenticatinManager;
     private final TokenConfig tokenConfig;
     private final PasswordEncoder passwordEncoder;
+    private final EmailService emailService;
 
     public AuthenticationService(UserRepository userRepository, AuthenticationManager authenticatioManager,
-                                 TokenConfig tokenConfig, PasswordEncoder passwordEncoder) {
+                                 TokenConfig tokenConfig, PasswordEncoder passwordEncoder, EmailService emailService) {
         this.userRepository = userRepository;
         this.authenticatinManager = authenticatioManager;
         this.tokenConfig = tokenConfig;
         this.passwordEncoder = passwordEncoder;
+        this.emailService = emailService;
     }
 
     public LoginResponse login(@NotNull LoginRequest request) {
@@ -44,14 +45,18 @@ public class AuthenticationService {
     public RegisterResponse register(@NotNull RegisterRequest register) {
         UserEntity newUser = new UserEntity();
         newUser.setEmail(register.email());
+        newUser.setName(register.name());
+        newUser.setPassword(passwordEncoder.encode(register.password()));
 
-        if (userRepository.existsByEmail(newUser.getEmail())) {
-            throw new EmailAlreadyExistsException("O e-mail " + newUser.getEmail() + "' já está em uso.");
-        } else {
-            newUser.setPassword(passwordEncoder.encode(register.password()));
-            newUser.setName(register.name());
-            userRepository.save(newUser);
-        }
+        String subject = "E-mail criado com sucesso";
+        String mensage = """
+                Olá pequeno garfanhoto! <br>
+                Fico feliz que tenha feito cadastro no meu sistema! <br>
+                Agora você pode aproveitar mais sobre o sistema.
+                """;
+        emailService.sendEmail(newUser.getEmail(), subject, mensage);
+
+        userRepository.save(newUser);
 
         return new RegisterResponse(newUser.getName(), newUser.getEmail(), newUser.getUsername());
     }
